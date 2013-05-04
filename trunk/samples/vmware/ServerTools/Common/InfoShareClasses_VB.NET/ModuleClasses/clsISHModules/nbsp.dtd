@@ -1,0 +1,9 @@
+
+<!-- ============================================================= -->
+<!--                COMMON ENTITY DECLARATIONS                     -->
+<!-- ============================================================= -->
+
+<!-- for use within the DTD and supported topics; these will NOT work
+     outside of this DTD or dtds that specialize from it!          -->
+<!ENTITY nbsp                   "&#xA0;"                             >
+
