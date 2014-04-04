@@ -62,14 +62,13 @@ Public Class mainAPIclass
         Dim Languages(0) As String
         Languages(0) = Language
         Dim Resolutions() As String
-        oISHAPIObjs.ISHMetaObj.GetLOVValues(Context, "DRESOLUTION", Resolutions)
+        '[UPGRADE to 2013SP1] Changed the result to return the result instead of just some arbitrary response.
+        Resolutions = oISHAPIObjs.ISHMetaObj.GetLOVValues("DRESOLUTION")
 
         'Get the existing publication content at the specified version.
-        oISHAPIObjs.ISHPubOutObj25.RetrieveVersionMetadata(Context, _
-                        GUIDs, _
+        outObjectList = oISHAPIObjs.ISHPubOutObj25.RetrieveVersionMetadata(GUIDs, _
                         Version, _
-                        oCommonFuncs.BuildMinPubMetadata.ToString, _
-                        outObjectList)
+                        oCommonFuncs.BuildMinPubMetadata.ToString)
 
         Dim VerDoc As New XmlDocument
         VerDoc.LoadXml(outObjectList)
@@ -84,8 +83,10 @@ Public Class mainAPIclass
         baselinename = ishfields.SelectSingleNode("ishfield[@name='FISHBASELINE']").InnerText
         'Pull the baseline info
         Dim myBaseline As String = ""
-        oISHAPIObjs.ISHBaselineObj.GetBaselineId(Context, baselinename, baselineID)
-        oISHAPIObjs.ISHBaselineObj.GetReport(Context, baselineID, Nothing, Languages, Languages, Languages, Resolutions, outObjectList)
+        '[UPGRADE to 2013SP1] Changed the result to return the result instead of just some arbitrary response.
+        baselineID = oISHAPIObjs.ISHBaselineObj.GetBaselineId(baselinename)
+        '[UPGRADE to 2013SP1] Changed the result to return the result instead of just some arbitrary response.
+        outObjectList = oISHAPIObjs.ISHBaselineObj.GetReport(baselineID, Nothing, Languages, Languages, Languages, Resolutions)
         'Load the resulting baseline string as an xml document
         Dim baselineDoc As New XmlDocument
         baselineDoc.LoadXml(outObjectList)
@@ -147,7 +148,7 @@ Public Class mainAPIclass
     Public Function SetMeta(ByVal strMeta As String, ByVal GUID As String, ByVal Version As String, ByVal strResolution As String, Optional ByVal Language As String = "en") As Boolean
         Try
             ' Clear variable for the result
-            oISHAPIObjs.ISHDocObj.SetMetaData(Context, GUID, Version, Language, strResolution, strMeta, "")
+            oISHAPIObjs.ISHDocObj.SetMetaData(GUID, Version, Language, strResolution, strMeta, "")
         Catch ex As Exception
             modErrorHandler.Errors.PrintMessage(2, "Error setting meta for " + GUID + "" + Version + "" + Language + ". Message: " + ex.Message.ToString, strModuleName + "-SetMeta")
             Return False
@@ -170,7 +171,7 @@ Public Class mainAPIclass
         Dim requestedmeta As StringBuilder = oCommonFuncs.BuildRequestedMetadata()
         'Call the CMS to get our content!
         Try
-            ISHResult = oISHAPIObjs.ISHDocObj.GetDocObj(Context, GUID, Version, Language, Resolution, "", "", requestedmeta.ToString, XMLString)
+            ISHResult = oISHAPIObjs.ISHDocObj.GetDocObj(GUID, Version, Language, Resolution, "", "", requestedmeta.ToString, XMLString)
         Catch ex As Exception
             modErrorHandler.Errors.PrintMessage(3, "Failed to retrieve XML from CMS server: " + ex.Message, strModuleName + "-GetObjByID")
             Return False
@@ -245,7 +246,7 @@ Public Class mainAPIclass
         Dim requestedmeta As StringBuilder = oCommonFuncs.BuildRequestedMetadata()
         'Call the CMS to get our content!
         Try
-            ISHResult = oISHAPIObjs.ISHDocObj.GetDocObj(Context, GUID, Version, Language, Resolution, "", "", requestedmeta.ToString, XMLString)
+            ISHResult = oISHAPIObjs.ISHDocObj.GetDocObj(GUID, Version, Language, Resolution, "", "", requestedmeta.ToString, XMLString)
         Catch ex As Exception
             'modErrorHandler.Errors.PrintMessage(3, "Failed to retrieve XML from CMS server: " + ex.Message, strModuleName)
             Return Nothing
@@ -272,7 +273,7 @@ Public Class mainAPIclass
         Try
             If Resolution.Length > 0 Then
                 Try
-                    oISHAPIObjs.ISHDocObj.Delete(Context, GUID, Version, Language, "Low")
+                    oISHAPIObjs.ISHDocObj.Delete(GUID, Version, Language, "Low")
                     modErrorHandler.Errors.PrintMessage(1, "Deleting low resolution for: " + GUID, strModuleName + "-ObliterateGUID")
 
                 Catch ex As Exception
@@ -280,7 +281,7 @@ Public Class mainAPIclass
                 End Try
                 If Resolution = "High" Then
                     Try
-                        oISHAPIObjs.ISHDocObj.Delete(Context, GUID, Version, Language, "High")
+                        oISHAPIObjs.ISHDocObj.Delete(GUID, Version, Language, "High")
                         modErrorHandler.Errors.PrintMessage(1, "Deleting high resolution for: " + GUID, strModuleName + "-ObliterateGUID")
 
                     Catch ex As Exception
@@ -289,7 +290,7 @@ Public Class mainAPIclass
                 End If
 
                 Try
-                    oISHAPIObjs.ISHDocObj.Delete(Context, GUID, Version, Language, "Thumbnail")
+                    oISHAPIObjs.ISHDocObj.Delete(GUID, Version, Language, "Thumbnail")
                     modErrorHandler.Errors.PrintMessage(1, "Deleting thumbnail for: " + GUID, strModuleName + "-ObliterateGUID")
 
                 Catch ex As Exception
@@ -297,7 +298,7 @@ Public Class mainAPIclass
                 End Try
 
                 Try
-                    oISHAPIObjs.ISHDocObj.Delete(Context, GUID, Version, Language, "Source")
+                    oISHAPIObjs.ISHDocObj.Delete(GUID, Version, Language, "Source")
                     modErrorHandler.Errors.PrintMessage(1, "Deleting source resolution for: " + GUID, strModuleName + "-ObliterateGUID")
 
                 Catch ex As Exception
@@ -306,14 +307,14 @@ Public Class mainAPIclass
 
             End If
             Try
-                oISHAPIObjs.ISHDocObj.Delete(Context, GUID, Version, "", "")
+                oISHAPIObjs.ISHDocObj.Delete(GUID, Version, "", "")
                 modErrorHandler.Errors.PrintMessage(1, "Deleting language level for: " + GUID, strModuleName + "-ObliterateGUID")
 
             Catch ex As Exception
 
             End Try
             Try
-                oISHAPIObjs.ISHDocObj.Delete(Context, GUID, "", "", "")
+                oISHAPIObjs.ISHDocObj.Delete(GUID, "", "", "")
                 modErrorHandler.Errors.PrintMessage(1, "Deleting version level for: " + GUID, strModuleName + "-ObliterateGUID")
 
             Catch ex As Exception
@@ -334,7 +335,7 @@ Public Class mainAPIclass
                 modErrorHandler.Errors.PrintMessage(3, "Unable to delete module: " + GUID + " Referenced by other module(s).", strModuleName)
                 Return False
             ElseIf ex.Message.Contains("-102") Then
-                oISHAPIObjs.ISHDocObj.Delete(Context, GUID, "", "", "")
+                oISHAPIObjs.ISHDocObj.Delete(GUID, "", "", "")
             Else
                 Return False
             End If
@@ -358,7 +359,7 @@ Public Class mainAPIclass
 
         'Call the CMS to get our content!
         Try
-            ISHResult = oISHAPIObjs.ISHDocObj.GetDocObj(Context, GUID, Version, Language, Resolution, "", "", requestedmeta.ToString, XMLString)
+            ISHResult = oISHAPIObjs.ISHDocObj.GetDocObj(GUID, Version, Language, Resolution, "", "", requestedmeta.ToString, XMLString)
             Return True
         Catch ex As Exception
             'modErrorHandler.Errors.PrintMessage(3, "Failed to retrieve XML from CMS server: " + ex.Message, strModuleName)
@@ -385,13 +386,13 @@ Public Class mainAPIclass
 
         Try
             'check out the module (must be map or topic)
-            oISHAPIObjs.ISHDocObj.CheckOut(Context, GUID, Version, Language, "", requestedmetadata.ToString, RequestedXMLObject)
+            oISHAPIObjs.ISHDocObj.CheckOut(GUID, Version, Language, "", requestedmetadata.ToString, RequestedXMLObject)
         Catch ex As Exception
             'If, for some reason, we already have an object checked out, great.  otherwise, we can't check it out for some reason.
             'Exit Code for already checking an object out is -132
             If ex.Message.Contains("-132") Then
                 'we have it checked out already, but we still need to get the object CData:
-                oISHAPIObjs.ISHDocObj.GetDocObj(Context, GUID, Version, Language, "", "", "", requestedmetadata.ToString, RequestedXMLObject)
+                oISHAPIObjs.ISHDocObj.GetDocObj(GUID, Version, Language, "", "", "", requestedmetadata.ToString, RequestedXMLObject)
             Else
                 modErrorHandler.Errors.PrintMessage(3, "Unable to checkout GUID: " + GUID + " Error: " + ex.Message, strModuleName + "-ReplaceWithTemplatedContent")
                 Return False
@@ -431,7 +432,7 @@ Public Class mainAPIclass
         End Select
         If IsNothing(Data) = False Then
             Try
-                oISHAPIObjs.ISHDocObj.CheckIn(Context, GUID, Version, Language, "", "", "EDTXML", Data)
+                oISHAPIObjs.ISHDocObj.CheckIn(GUID, Version, Language, "", "", "EDTXML", Data)
                 Return True
             Catch ex As Exception
                 modErrorHandler.Errors.PrintMessage(3, "Unable to checkin after replacing content. GUID: " + GUID + " Object is still checked out to user!", strModuleName + "-ReplaceWithTemplatedContent")
@@ -549,7 +550,7 @@ Public Class mainAPIclass
 
         End If
         Dim SearchResult As String = ""
-        oISHAPIObjs.ISHDocObj.GetMetaData(Context, GUID, Version, Language, Resolution, "<ishfields><ishfield name=""FSTATUS"" level=""lng""/></ishfields>", SearchResult)
+        oISHAPIObjs.ISHDocObj.GetMetaData(GUID, Version, Language, Resolution, "<ishfields><ishfield name=""FSTATUS"" level=""lng""/></ishfields>", SearchResult)
         If SearchResult.Contains("""FSTATUS"" level=""lng"">Released") Then
             'Status is released.  Can't delete
             Return False
@@ -577,7 +578,7 @@ Public Class mainAPIclass
 
             'Returns a list of referencing objects to "requestedobjects" string as xml:
             Try
-                oISHAPIObjs.ISHFolderObj.GetContents(Context, FolderID, "", RealRequestedMeta.ToString, requestedobjects)
+                oISHAPIObjs.ISHFolderObj.GetContents(FolderID, "", RealRequestedMeta.ToString, requestedobjects)
             Catch ex As Exception
                 modErrorHandler.Errors.PrintMessage(2, "Unable to get contents of folder " + FolderID, strModuleName + "-FolderContainsGUID")
             End Try
@@ -619,7 +620,7 @@ Public Class mainAPIclass
             Dim subfolderlistXML As String = ""
             Dim CMSReply As String
             Try
-                CMSReply = oISHAPIObjs.ISHFolderObj.GetSubFolders(Context, ParentFolderID.ToString, 1, subfolderlistXML)
+                CMSReply = oISHAPIObjs.ISHFolderObj.GetSubFolders(ParentFolderID.ToString, 1, subfolderlistXML)
             Catch ex As Exception
 
             End Try
@@ -666,12 +667,10 @@ Public Class mainAPIclass
         GUIDs(0) = GUID
 
         'Get the existing content at the latest version.
-        oISHAPIObjs.ISHPubOutObj25.RetrieveVersionMetadata(Context, _
-                        GUIDs, _
+        '[Upgraded to LCA2013]
+        outObjectList = oISHAPIObjs.ISHPubOutObj25.RetrieveVersionMetadata(GUIDs, _
                         "latest", _
-                        oCommonFuncs.BuildMinPubMetadata.ToString, _
-                        outObjectList)
-
+                        oCommonFuncs.BuildMinPubMetadata.ToString)
         Dim VerDoc As New XmlDocument
         VerDoc.LoadXml(outObjectList)
         If VerDoc Is Nothing Or VerDoc.HasChildNodes = False Then
@@ -692,14 +691,14 @@ Public Class mainAPIclass
         Dim Languages(0) As String
         Languages(0) = "en"
         Dim Resolutions() As String
-        oISHAPIObjs.ISHMetaObj.GetLOVValues(Context, "DRESOLUTION", Resolutions)
+        '[UPGRADE to 2013SP1] Changed the result to return the result instead of just some arbitrary response.
+        Resolutions = oISHAPIObjs.ISHMetaObj.GetLOVValues("DRESOLUTION")
 
         'Get the existing publication content at the specified version.
-        oISHAPIObjs.ISHPubOutObj25.RetrieveVersionMetadata(Context, _
-                        GUIDs, _
+        '[UPGRADE to 2013SP1] Changed the result to return the result instead of just some arbitrary response.
+        outObjectList = oISHAPIObjs.ISHPubOutObj25.RetrieveVersionMetadata(GUIDs, _
                         PubVer, _
-                        oCommonFuncs.BuildMinPubMetadata.ToString, _
-                        outObjectList)
+                        oCommonFuncs.BuildMinPubMetadata.ToString)
 
         Dim VerDoc As New XmlDocument
         VerDoc.LoadXml(outObjectList)
@@ -718,7 +717,7 @@ Public Class mainAPIclass
 #End Region
 
 #Region "Reports Functions"
-    
+
 
     ''' <summary>
     ''' Given a commonly returned "ishobjects" XML Document returned from most CMS queries, 
@@ -782,7 +781,7 @@ Public Class mainAPIclass
 
 
         'Returns a list of referencing objects to "requestedobjects" string as xml:
-        oISHAPIObjs.ISHReportsObj.GetReferencedDocObj(Context, GUID, Version, Language, False, RealRequestedMeta.ToString, requestedobjects)
+        oISHAPIObjs.ISHReportsObj.GetReferencedDocObj(GUID, Version, Language, False, RealRequestedMeta.ToString, requestedobjects)
         'Load the string as an xmldoc
         Dim doc As New XmlDocument
         doc.LoadXml(requestedobjects)
@@ -825,7 +824,7 @@ Public Class mainAPIclass
         End If
 
         'Returns a list of referencing objects to "requestedobjects" string as xml:
-        oISHAPIObjs.ISHReportsObj.GetReferencedByDocObj(Context, GUID, Version, Language, False, RealRequestedMeta.ToString, requestedobjects)
+        oISHAPIObjs.ISHReportsObj.GetReferencedByDocObj(GUID, Version, Language, False, RealRequestedMeta.ToString, requestedobjects)
         'Load the string as an xmldoc
         Dim doc As New XmlDocument
         doc.LoadXml(requestedobjects)

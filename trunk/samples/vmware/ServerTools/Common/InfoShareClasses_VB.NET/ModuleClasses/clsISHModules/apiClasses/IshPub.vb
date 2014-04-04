@@ -7,8 +7,9 @@ Public Class IshPub
 #End Region
 #Region "Constructors"
     Public Sub New(ByVal Username As String, ByVal Password As String, ByVal ServerURL As String)
+        'Make sure to use the FQDN up to the "WS" portion of your URL: "https://yourserver/InfoShareWS"
         oISHAPIObjs = New ISHObjs(Username, Password, ServerURL)
-        oISHAPIObjs.ISHAppObj.Login("InfoShareAuthor", Username, Password, Context)
+        'oISHAPIObjs.ISHAppObj.Login("InfoShareAuthor", Username, Password, Context)
     End Sub
 #End Region
 #Region "Properties"
@@ -75,11 +76,11 @@ Public Class IshPub
 
         'Call the CMS to get our content!
         Try
-            ISHResult = oISHAPIObjs.ISHPubOutObj25.Find(Context, _
-                                                         PublicationOutput25.eISHStatusgroup.ISHNoStatusFilter, _
+            '[UPGRADE to 2013SP1] Changed the result to return the "XMLString" instead of just some arbitrary response.
+            XMLString = oISHAPIObjs.ISHPubOutObj25.Find( _
+                                                         PublicationOutput25ServiceReference.StatusFilter.ISHNoStatusFilter, _
                                                          oCommonFuncs.BuildPubMetaDataFilter(GUID, Version).ToString, _
-                                                         oCommonFuncs.BuildFullPubMetadata.ToString, _
-                                                         XMLString)
+                                                         oCommonFuncs.BuildFullPubMetadata.ToString)
         Catch ex As Exception
             'modErrorHandler.Errors.PrintMessage(3, "Failed to retrieve XML from CMS server: " + ex.Message, strModuleName)
             Return Nothing

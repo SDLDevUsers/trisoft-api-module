@@ -11,8 +11,9 @@ Public Class IshPubOutput
 #End Region
 #Region "Constructors"
     Public Sub New(ByVal Username As String, ByVal Password As String, ByVal ServerURL As String)
+        'Make sure to use the FQDN up to the "WS" portion of your URL: "https://yourserver/InfoShareWS"
         oISHAPIObjs = New ISHObjs(Username, Password, ServerURL)
-        oISHAPIObjs.ISHAppObj.Login("InfoShareAuthor", Username, Password, Context)
+        'oISHAPIObjs.ISHAppObj.Login("InfoShareAuthor", Username, Password, Context)
     End Sub
 #End Region
 #Region "Properties"
@@ -47,10 +48,10 @@ Public Class IshPubOutput
                 If (chunk_size > remaining) Then
                     chunk_size = remaining
                 End If
-                Dim pboutbytes() As Byte
+                Dim pboutbytes() As Byte = {}
 
 
-                oISHAPIObjs.ISHPubOutObj25.GetNextDataObjectChunkByIshLngRef(Context, lngIshLngRef, strEdtID, plOff, chunk_size, pboutbytes)
+                oISHAPIObjs.ISHPubOutObj25.GetNextDataObjectChunkByIshLngRef(lngIshLngRef, strEdtID, plOff, chunk_size, pboutbytes)
 
 
                 remaining = lngFileSize - plOff
@@ -118,7 +119,8 @@ Public Class IshPubOutput
         Dim myrequest As String = "<ishfields><ishfield name=""VERSION"" level=""version""/><ishfield name=""FISHPUBSTATUS"" level=""lng""/><ishfield name=""FISHISRELEASED"" level=""version""/><ishfield name=""DOC-LANGUAGE"" level=""lng""/><ishfield name=""FISHOUTPUTFORMATREF"" level=""lng""/><ishfield name=""FTITLE"" level=""logical""/></ishfields>"
         Dim responsexml As String = ""
         Try
-            oISHAPIObjs.ISHPubOutObj25.Find(Context, PublicationOutput25.eISHStatusgroup.ISHNoStatusFilter, myfilter, myrequest, responsexml)
+            '[UPGRADE to 2013SP1] Changed the response to return the XML as a variable rather than an out param.
+            responsexml = oISHAPIObjs.ISHPubOutObj25.Find(PublicationOutput25ServiceReference.StatusFilter.ISHNoStatusFilter, myfilter, myrequest)
             Dim pubinfo As New XmlDocument
             pubinfo.LoadXml(responsexml)
             outPubTitle = pubinfo.SelectSingleNode("//ishfield[@name='FTITLE']").InnerText
@@ -149,14 +151,16 @@ Public Class IshPubOutput
         'Get who and when output info:
         Dim strWhoWhenRequest As String = "<ishfields><ishfield name=""VERSION"" level=""version""/><ishfield name=""DOC-LANGUAGE"" level=""lng""/><ishfield name=""FISHPUBLNGCOMBINATION"" level=""lng""/><ishfield name=""FISHOUTPUTFORMATREF"" level=""lng""/><ishfield name=""FISHEVENTID"" level=""lng""/><ishfield name=""FISHPUBLISHER"" level=""lng""/></ishfields>"
         Dim strWhoWhenResult As String = ""
-        oISHAPIObjs.ISHPubOutObj25.GetMetaDataByIshLngRef(Context, lngMyISHLangRef, strWhoWhenRequest, strWhoWhenResult)
+        '[Upgrade to 2013SP1] Return the result to a variable rather than an out param.
+        strWhoWhenResult = oISHAPIObjs.ISHPubOutObj25.GetMetadataByIshLngRef(lngMyISHLangRef, strWhoWhenRequest)
         Dim whowhen As New XmlDocument
         whowhen.LoadXml(strWhoWhenResult)
 
 
         'Get output's metadata
         Dim requesteddata As String = ""
-        oISHAPIObjs.ISHPubOutObj25.GetDataObjectInfoByIshLngRef(Context, lngMyISHLangRef, requesteddata)
+        '[Upgrade to 2013SP1] Return the result to a variable rather than an out param.
+        requesteddata = oISHAPIObjs.ISHPubOutObj25.GetDataObjectInfoByIshLngRef(lngMyISHLangRef)
         Dim metadata As New XmlDocument
         metadata.LoadXml(requesteddata)
 
@@ -217,8 +221,10 @@ Public Class IshPubOutput
             'Place to store resulting requested info.
             Dim strRequestedObjects As String = ""
             'Get the status of the requested output.
-            oISHAPIObjs.ISHPubOutObj25.GetMetaDataByIshLngRef(Context, lngMyISHLangRef, requestedMeta, strRequestedObjects)
-            '.ISHPubOutObj25.GetMetaDataByIshLngRef(Context, lngMyISHLangRef, requestedMeta, strRequestedObjects)
+
+            '[UPGRADE to 2013SP1] Changed the result to return the result instead of just some arbitrary response.
+            strRequestedObjects = oISHAPIObjs.ISHPubOutObj25.GetMetadataByIshLngRef(lngMyISHLangRef, requestedMeta)
+            '.ISHPubOutObj25.GetMetaDataByIshLngRef(lngMyISHLangRef, requestedMeta, strRequestedObjects)
             Dim mydoc As New XmlDocument
             mydoc.LoadXml(strRequestedObjects)
             'Record the state:
@@ -245,7 +251,8 @@ Public Class IshPubOutput
         mylist.Add("Publishing")
         mylist.Add("Released")
         'Get the status of the requested output.
-        oISHAPIObjs.ISHPubOutObj25.GetMetaDataByIshLngRef(Context, IshLangRef, requestedMeta, strRequestedObjects)
+        '[UPGRADE to 2013SP1] Changed the result to return the result instead of just some arbitrary response.
+        strRequestedObjects = oISHAPIObjs.ISHPubOutObj25.GetMetadataByIshLngRef(IshLangRef, requestedMeta)
         Dim mydoc As New XmlDocument
         mydoc.LoadXml(strRequestedObjects)
         Dim Status As String
@@ -291,7 +298,7 @@ Public Class IshPubOutput
             Dim strOutEventID As String = ""
             Try
                 If CanBePublished(lngMyISHLangRef) Then
-                    oISHAPIObjs.ISHPubOutObj20.PublishByIshLngRef(Context, lngMyISHLangRef, strOutEventID)
+                    oISHAPIObjs.ISHPubOutObj20.PublishByIshLngRef(lngMyISHLangRef, strOutEventID)
                 Else
                     modErrorHandler.Errors.PrintMessage(2, "Output is already printing or is released. PubGUID: " + PubGUID + " ISHLangRef of output: " + lngMyISHLangRef.ToString, strModuleName + "-StartAllPubOutputs")
                 End If
@@ -323,13 +330,11 @@ Public Class IshPubOutput
         Dim requestedmeta As String = oCommonFuncs.BuildFullPubMetadata.ToString
         Dim metafilter As String = oCommonFuncs.BuildPubMetaDataFilter(GUID, Version, Language, OutputType).ToString
         Try
-            Dim result As String = oISHAPIObjs.ISHPubOutObj25.RetrieveMetadata(Context, _
-                                                               GUIDs, _
-                                                               PublicationOutput25.eISHStatusgroup.ISHNoStatusFilter, _
+            strOutXMLObjList = oISHAPIObjs.ISHPubOutObj25.RetrieveMetadata(GUIDs, _
+                                                               PublicationOutput25ServiceReference.StatusFilter.ISHNoStatusFilter, _
                                                                metafilter, _
-                                                               requestedmeta, _
-                                                               strOutXMLObjList)
-            'ISHPubOutObj25.Find(Context, PublicationOutput25.eISHStatusgroup.ISHNoStatusFilter, strXMLMetaDataFilter.ToString, strXMLRequestedMetadata.ToString, strOutXMLObjList)
+                                                               requestedmeta)
+            'ISHPubOutObj25.Find(PublicationOutput25.eISHStatusgroup.ISHNoStatusFilter, strXMLMetaDataFilter.ToString, strXMLRequestedMetadata.ToString, strOutXMLObjList)
             Dim ListofObjects As New XmlDocument()
             ListofObjects.LoadXml(strOutXMLObjList)
             Return ListofObjects
@@ -356,7 +361,7 @@ Public Class IshPubOutput
             state = GetOutputState(strPubGUID, strPubVer, strLanguage, strOutType)
             If state = "Pending" Or state = "Publishing" Then
                 GetOutputInfo(strPubGUID, strPubVer, strLanguage, strOutType, EdGuid, EDTType, FileSize, mimetype, fileext, ishlngref, PubTitle, strBuildDate, strBuildUser, strPubServ)
-                oISHAPIObjs.ISHPubOutObj20.CancelPublishByIshLngRef(Context, ishlngref)
+                oISHAPIObjs.ISHPubOutObj20.CancelPublishByIshLngRef(ishlngref)
             End If
         Catch ex As Exception
             modErrorHandler.Errors.PrintMessage(2, "Unable to cancel publishing on specified output. Skipping. Message: " + ex.Message, strModuleName + "-CancelPublishOperation")

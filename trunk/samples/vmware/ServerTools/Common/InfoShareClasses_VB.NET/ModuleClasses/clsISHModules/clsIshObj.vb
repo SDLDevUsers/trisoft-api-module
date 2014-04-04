@@ -35,6 +35,14 @@ Public Class clsISHObj
     '    oDocument.LoadXMLTemplates()
 
     'End Sub
+    ''' <summary>
+    ''' Creates the main ISH object to be used while interfacing with the LiveContent Architect system. 
+    ''' TODO: Need to enable dynamic application switching between servers...
+    ''' </summary>
+    ''' <param name="Username"></param>
+    ''' <param name="Password"></param>
+    ''' <param name="ServerURL">Server URL.</param>
+    ''' <remarks>Server URL should include FQDN including "WS". For instance: https://trisoft03.sdlproducts.com/InfoShareWS2 </remarks>
     Public Sub New(ByVal Username As String, ByVal Password As String, ByVal ServerURL As String)
 
         SetContext(Username, Password, ServerURL)
@@ -51,6 +59,7 @@ Public Class clsISHObj
     Public oDocument As IshDocument
     Public oBaseline As IshBaseline
     Public oConditions As IshConditions
+    Public oListOfValues As IshListOfValues
     Public oMeta As IshMeta
     Public oOutput As IshOutput
     Public oPub As IshPub
@@ -59,6 +68,7 @@ Public Class clsISHObj
     Public oSearch As IshSearch
     Public oWorkflow As IshWorkflow
     Public oFolder As IshFolder
+
     Public oIshObjs As ISHObjs
 
     Public CMSServerURL As New String("")
@@ -116,27 +126,22 @@ Public Class clsISHObj
     ''' Used to set the context of the current user's credentials on the specified CMS URL.
     ''' </summary>
     Public Function SetContext(ByVal uname As String, ByVal passwd As String, ByVal RepositoryURL As String) As Boolean
-        Dim m_context As String = ""
+        Try
         'First, test the App web reference with the passed URL.
         oApplication = New IshApplication(uname, passwd, RepositoryURL)
-        'oApplication.oISHAPIObjs.ISHAppObj.Url = RepositoryURL + "/InfoShareWS/Application20.asmx"
-        m_Context = ""
-        CMSServerURL = "" 'Reset because we're trying a new connection.  if it fails, we don't want to keep this around.
-        'test logging in (m_context gets set here):
-        Try
-            oApplication.oISHAPIObjs.ISHAppObj.Login(ISHApp, uname, passwd, m_context)
             CMSServerURL = RepositoryURL
         Catch ex As Exception
             modErrorHandler.Errors.PrintMessage(3, "Login failed: " + ex.Message.ToString, strModuleName)
             Return False
         End Try
 
-        If Not m_Context = "" Then
+
             'Create all the new objects as previously defined but with the proper credentials:
             oApplication = New IshApplication(uname, passwd, CMSServerURL)
             oDocument = New IshDocument(uname, passwd, CMSServerURL)
             oBaseline = New IshBaseline(uname, passwd, CMSServerURL)
             oConditions = New IshConditions(uname, passwd, CMSServerURL)
+        oListOfValues = New IshListOfValues(uname, passwd, CMSServerURL)
             oMeta = New IshMeta(uname, passwd, CMSServerURL)
             oOutput = New IshOutput(uname, passwd, CMSServerURL)
             oPub = New IshPub(uname, passwd, CMSServerURL)
@@ -146,22 +151,22 @@ Public Class clsISHObj
             oWorkflow = New IshWorkflow(uname, passwd, CMSServerURL)
             oFolder = New IshFolder(uname, passwd, CMSServerURL)
 
-            'Set all the ISHObj web refs to use this passed URL...
-            Try
-                'Sets the context property which results in all the oISH objects' contexts getting set to the same context.
-                Context = m_context
-            Catch ex As Exception
-                modErrorHandler.Errors.PrintMessage(1, "Unable to set Web Reference URL.  Message: " + ex.Message, strModuleName)
-                Return False
-            End Try
 
-        Else
-            'ErrorMessage Out.
-            modErrorHandler.Errors.PrintMessage(1, "Login Failed: One or more parameters are incorrect", strModuleName)
-            Return False
-        End If
-        'Copy the DTD file.
+        ''Set all the ISHObj web refs to use this passed URL...
+        'Try
+        '    'Sets the context property which results in all the oISH objects' contexts getting set to the same context.
+        '    Context = m_context
+        'Catch ex As Exception
+        '    modErrorHandler.Errors.PrintMessage(1, "Unable to set Web Reference URL.  Message: " + ex.Message, strModuleName)
+        '    Return False
+        'End Try
+
+
+
 
         Return True
     End Function
 End Class
+
+
+
