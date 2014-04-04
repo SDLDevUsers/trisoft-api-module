@@ -17,6 +17,8 @@ Public Class clsCommonFuncs
         Dim referenceblob() As Byte
         Dim troubleshooting As XmlDocument
         Dim troubleshootingblob() As Byte
+        Dim library As XmlDocument
+        Dim libraryblob() As Byte
     End Structure
     Public XMLTemplates As New XMLTemplateStruct
 
@@ -74,6 +76,7 @@ Public Class clsCommonFuncs
         TemplateHash.Add("task.xml", My.Application.Info.DirectoryPath + "\templateModules\task.xml")
         TemplateHash.Add("reference.xml", My.Application.Info.DirectoryPath + "\templateModules\reference.xml")
         TemplateHash.Add("troubleshooting.xml", My.Application.Info.DirectoryPath + "\templateModules\troubleshooting.xml")
+        TemplateHash.Add("library-template.xml", My.Application.Info.DirectoryPath + "\templateModules\library-template.xml")
         For Each templatefile As DictionaryEntry In TemplateHash
             Try
                 Dim doc As XmlDocument = LoadFileIntoXMLDocument(templatefile.Value)
@@ -94,6 +97,9 @@ Public Class clsCommonFuncs
                         Case "troubleshooting.xml"
                             .troubleshooting = doc
                             .troubleshootingblob = GetIshBlobFromXMLDoc(doc)
+                        Case "library-template.xml"
+                            .library = doc
+                            .libraryblob = GetIshBlobFromXMLDoc(doc)
                     End Select
                 End With
             Catch ex As Exception
@@ -110,6 +116,7 @@ Public Class clsCommonFuncs
                 .task.DocumentElement.Attributes.GetNamedItem("id").Value = GUID
                 .reference.DocumentElement.Attributes.GetNamedItem("id").Value = GUID
                 .troubleshooting.DocumentElement.Attributes.GetNamedItem("id").Value = GUID
+                .library.DocumentElement.Attributes.GetNamedItem("id").Value = GUID
             End With
         Catch ex As Exception
             modErrorHandler.Errors.PrintMessage(2, "Unable to set GUID in XML templates. Message: " + ex.Message, strModuleName)
@@ -247,7 +254,7 @@ Public Class clsCommonFuncs
         Dim settings As XmlReaderSettings
         Dim resolver As New DITAResolver()
         settings = New XmlReaderSettings()
-        settings.ProhibitDtd = False
+        settings.DtdProcessing = DtdProcessing.Parse 'False
         settings.ValidationType = ValidationType.None
         settings.XmlResolver = resolver
         settings.CloseInput = True
@@ -280,7 +287,7 @@ Public Class clsCommonFuncs
         Dim settings As XmlReaderSettings
         Dim resolver As New DITAResolver()
         settings = New XmlReaderSettings()
-        settings.ProhibitDtd = False
+        settings.DtdProcessing = DtdProcessing.Parse 'False
         settings.ValidationType = ValidationType.None
         settings.XmlResolver = resolver
         settings.CloseInput = True
@@ -386,9 +393,6 @@ Public Class clsCommonFuncs
         End If
         'if we have an image, need to set the default illustrator for it.
         If Resolution.Length > 0 Then
-            XMLString.Append("<ishfield name=""FILLUSTRATOR"" level=""lng"">")
-            XMLString.Append(Illustrator)
-            XMLString.Append("</ishfield>")
             XMLString.Append("<ishfield type=""hidden"" name=""FNOTRANSLATIONMGMT"" level=""logical"" label=""Disable translation management"">No</ishfield>")
         End If
         If Author.Length > 0 Then
@@ -501,7 +505,7 @@ Public Class clsCommonFuncs
             Dim DTDpath As String
             DTDpath = Path.GetTempPath() & "nbsp.dtd"
 
-            Dim clsResourceStream As System.IO.Stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("VMwareISHModulesNS.nbsp.dtd")
+            Dim clsResourceStream As System.IO.Stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("IshModulesNS.nbsp.dtd")
             Dim bResource As Byte() = DirectCast(Array.CreateInstance(GetType(Byte), clsResourceStream.Length), Byte())
             clsResourceStream.Read(bResource, 0, bResource.Length)
             clsResourceStream.Close()
@@ -561,7 +565,7 @@ Public Class clsCommonFuncs
         Dim settings As XmlReaderSettings
         Dim resolver As New DITAResolver()
         settings = New XmlReaderSettings()
-        settings.ProhibitDtd = False
+        settings.DtdProcessing = DtdProcessing.Parse 'False
         settings.ValidationType = ValidationType.None
         settings.XmlResolver = resolver
         settings.CloseInput = True
@@ -591,7 +595,6 @@ Public Class clsCommonFuncs
         'If Resolution = "" Then
         requestedmeta.Append("<ishfield name=""FAUTHOR"" level=""lng""/>")
         'Else
-        requestedmeta.Append("<ishfield name=""FILLUSTRATOR"" level=""lng""/>")
         requestedmeta.Append("<ishfield name=""FRESOLUTION"" level=""lng""/>")
         'End If
         requestedmeta.Append("<ishfield name=""FSTATUS"" level=""lng""/>")
@@ -667,8 +670,8 @@ Public Class clsCommonFuncs
         Public Overrides Function GetEntity(ByVal absoluteUri As Uri, ByVal role As String, ByVal ofObjectToReturn As Type) As Object
             Dim pubid1slash As String
             Dim Pubid As String
-            Pubid = "-//VMWARE//DTD DITA "
-            pubid1slash = "-/VMWARE/DTD DITA "
+            Pubid = "-//MYCOMPANY//DTD DITA "
+            pubid1slash = "-/MYCOMPANY/DTD DITA "
             Dim mapid1slash As String
             Dim Mapid As String
             Mapid = "-//OASIS//DTD DITA "

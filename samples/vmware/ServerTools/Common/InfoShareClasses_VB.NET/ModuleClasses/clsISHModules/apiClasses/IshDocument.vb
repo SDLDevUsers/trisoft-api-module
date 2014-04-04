@@ -2,7 +2,7 @@
 Imports ErrorHandlerNS
 Imports System.IO
 Imports System.Text
-Imports VMwareISHModulesNS.clsCommonFuncs
+Imports ISHModulesNS.clsCommonFuncs
 
 Public Class IshDocument
     Inherits mainAPIclass
@@ -13,8 +13,9 @@ Public Class IshDocument
 #End Region
 #Region "Constructors"
     Public Sub New(ByVal Username As String, ByVal Password As String, ByVal ServerURL As String)
+        'Note that you should use the full URL up to the WS address (https://serverURL/InfoShareWS)
         oISHAPIObjs = New ISHObjs(Username, Password, ServerURL)
-        oISHAPIObjs.ISHAppObj.Login("InfoShareAuthor", Username, Password, Context)
+        'oISHAPIObjs.ISHAppObj.Login("InfoShareAuthor", Username, Password, Context)
     End Sub
 #End Region
 #Region "Properties"
@@ -28,7 +29,7 @@ Public Class IshDocument
         Try
             Dim CurrentFolder As Long = FindFolderIDforObjbyGUID(GUID, 0)
             If CurrentFolder > 0 Then
-                oISHAPIObjs.ISHDocObj.Move(Context, GUID, CurrentFolder.ToString, ToFolderID.ToString)
+                oISHAPIObjs.ISHDocObj.Move(GUID, CurrentFolder.ToString, ToFolderID.ToString)
             Else
                 modErrorHandler.Errors.PrintMessage(3, "Unable to move object " + GUID + " to specified location!", strModuleName + "-MoveObject")
             End If
@@ -112,7 +113,7 @@ Public Class IshDocument
         oCommonFuncs.GetCommonMetaFromLocalFile(checkinfile.FullName, CMSFilename, GUID, Version, Language, Resolution)
         Dim checkinblob As Byte() = oCommonFuncs.GetIshBlobFromFile(checkinfile.FullName)
         Try
-            oISHAPIObjs.ISHDocObj.CheckIn(Context, GUID, Version, Language, Resolution, "", oCommonFuncs.GetISHEdt(checkinfile.Extension), checkinblob)
+            oISHAPIObjs.ISHDocObj.CheckIn(GUID, Version, Language, Resolution, "", oCommonFuncs.GetISHEdt(checkinfile.Extension), checkinblob)
             modErrorHandler.Errors.PrintMessage(1, "Checked in object " + checkinfile.FullName + ".", strModuleName + "-CheckIn")
             checkinfile.Attributes = FileAttributes.Normal
             checkinfile.Delete()
@@ -128,7 +129,7 @@ Public Class IshDocument
         If ObjectExists(GUID, Version, Language, Resolution) Then
             'Check out the object
             Try
-                oISHAPIObjs.ISHDocObj.CheckOut(Context, GUID, Version, Language, Resolution, "", CheckOutFile)
+                oISHAPIObjs.ISHDocObj.CheckOut(GUID, Version, Language, Resolution, "", CheckOutFile)
                 modErrorHandler.Errors.PrintMessage(1, "Checked out object " + GUID + "=" + Version + "=" + Language + "=" + Resolution + ".", strModuleName + "-CheckOut")
                 CheckOutFile = ""
             Catch ex As Exception
@@ -136,7 +137,7 @@ Public Class IshDocument
                     CreateNewVersion(GUID, Version, Language, Resolution)
                     'now try checking out the new version:
                     Try
-                        oISHAPIObjs.ISHDocObj.CheckOut(Context, GUID, Version, Language, Resolution, "", CheckOutFile)
+                        oISHAPIObjs.ISHDocObj.CheckOut(GUID, Version, Language, Resolution, "", CheckOutFile)
                     Catch ex3 As Exception
                         modErrorHandler.Errors.PrintMessage(3, "Failed to check out object " + GUID + "=" + Version + "=" + Language + "=" + Resolution + ". Message: " + ex3.Message, strModuleName + "-CheckOut")
                         Return False
@@ -197,11 +198,12 @@ Public Class IshDocument
         End If
 
         'get the various required parameters needed to create the new version:
-        Dim IshType As DocumentObj20.eISHType = StringToISHType(oCommonFuncs.GetISHTypeFromMeta(newverDoc))
-        Dim basefolder As DocumentObj25.eBaseFolder
-        Dim folderpath() As String
-        Dim folderID() As Long
-        oISHAPIObjs.ISHDocObj25.FolderLocation(Context, GUID, basefolder, folderpath, folderID)
+        Dim IshType As DocumentObj20ServiceReference.ISHType = StringToISHType(oCommonFuncs.GetISHTypeFromMeta(newverDoc))
+        'Dim basefolder As DocumentObj25ServiceReference.BaseFolder
+        Dim folderpath() As String = {}
+        Dim folderID() As Long = {}
+
+        oISHAPIObjs.ISHDocObj25.FolderLocation(folderpath, folderID, GUID)
         'Need to first collect the current version info and then drop it.
         Dim ishfields As XmlNode = newverDoc.SelectSingleNode("//ishfields")
         'TODO: This doesn't currently handle branched objects... would need to pull the final value (after the last '.') in the string, increment it, then replace the final value.
@@ -216,7 +218,7 @@ Public Class IshDocument
         If ObjectExists(GUID, Version, Language) Then
             Try
                 'Create the new language content on the existing new version (created previously, but not populated with this resolution's content):
-                oISHAPIObjs.ISHDocObj.CreateOrUpdate(Context, folderID(folderID.Length - 1), IshType, GUID, Version, Language, Resolution, "Draft", XMLMetaData, XMLMetaData, psEDT, datablob)
+                oISHAPIObjs.ISHDocObj.CreateOrUpdate(folderID(folderID.Length - 1), IshType, GUID, Version, Language, Resolution, "Draft", XMLMetaData, XMLMetaData, psEDT, datablob)
             Catch ex2 As Exception
                 modErrorHandler.Errors.PrintMessage(3, "Failed to create new version of object " + GUID + "=" + Version + "=" + Language + "=" + Resolution + ". Message: " + ex2.Message, strModuleName + "-CheckOut")
                 Return False
@@ -224,7 +226,7 @@ Public Class IshDocument
         Else
             Try
                 'Create the new version AND language:
-                oISHAPIObjs.ISHDocObj.CreateOrUpdate(Context, folderID(folderID.Length - 1), IshType, GUID, "new", Language, Resolution, "Draft", XMLMetaData, XMLMetaData, psEDT, datablob)
+                oISHAPIObjs.ISHDocObj.CreateOrUpdate(folderID(folderID.Length - 1), IshType, GUID, "new", Language, Resolution, "Draft", XMLMetaData, XMLMetaData, psEDT, datablob)
             Catch ex2 As Exception
                 modErrorHandler.Errors.PrintMessage(3, "Failed to create new version of object " + GUID + "=" + Version + "=" + Language + "=" + Resolution + ". Message: " + ex2.Message, strModuleName + "-CheckOut")
                 Return False
@@ -293,11 +295,11 @@ Public Class IshDocument
             ' Import the content if it doesn't already exist in the CMS
             If ObjectExists(GUID, Version, Language, Resolution) = False And Language = "en" Then
                 Try
-                    oISHAPIObjs.ISHDocObj.Create(Context, CMSFolderID.ToString, StringToISHType(ISHType), GUID, Version, Language, Resolution, metaxml, oCommonFuncs.GetISHEdt(Path.GetExtension(FilePath)), data)
+                    oISHAPIObjs.ISHDocObj.Create(CMSFolderID.ToString, StringToISHType(ISHType), GUID, Version, Language, Resolution, metaxml, oCommonFuncs.GetISHEdt(Path.GetExtension(FilePath)), data)
                     ReturnedGUID = GUID
                     ''if objectmetatype is icon, also import thumbnail as new resolution
                     'If ObjectMetaType = "Icon" Then
-                    '    ISHDocObj.Create(Context, CMSFolderID.ToString, StringToISHType(ISHType), ReturnedGUID, Version, Language, "Thumbnail", metaxml, GetISHEdt(Path.GetExtension(FilePath)), data)
+                    '    ISHDocObj.Create(CMSFolderID.ToString, StringToISHType(ISHType), ReturnedGUID, Version, Language, "Thumbnail", metaxml, GetISHEdt(Path.GetExtension(FilePath)), data)
                     'End If
                     Return True
                 Catch ex As Exception
@@ -335,10 +337,10 @@ Public Class IshDocument
 
                     Dim currentmeta As String = ""
                     'Get the current metadata to allow the update
-                    oISHAPIObjs.ISHDocObj.GetMetaData(Context, GUID, Version, Language, Resolution, "<ishfields><ishfield name=""FTITLE"" level=""logical""/><ishfield name=""FSTATUS"" level=""lng""/></ishfields>", currentmeta)
+                    oISHAPIObjs.ISHDocObj.GetMetaData(GUID, Version, Language, Resolution, "<ishfields><ishfield name=""FTITLE"" level=""logical""/><ishfield name=""FSTATUS"" level=""lng""/></ishfields>", currentmeta)
                     Try
                         'attempt to update the current content with the new content and change the state to "Translated":
-                        oISHAPIObjs.ISHDocObj.Update(Context, GUID, Version, Language, Resolution, metaxml, currentmeta, oCommonFuncs.GetISHEdt(Path.GetExtension(FilePath)), data)
+                        oISHAPIObjs.ISHDocObj.Update(GUID, Version, Language, Resolution, metaxml, currentmeta, oCommonFuncs.GetISHEdt(Path.GetExtension(FilePath)), data)
                         Return True
                     Catch ex As Exception
                         modErrorHandler.Errors.PrintMessage(3, "Failed to import a file to the CMS. File: " + FilePath + ". Error Message: " + ex.Message, strModuleName + "importobj-updatel10n")
@@ -355,28 +357,28 @@ Public Class IshDocument
     ''' <summary>
     ''' Converts a string (ISHIllustration, ISHBaseline, etc.) to a valid ISHType object.
     ''' </summary>
-    Public Function StringToISHType(ByVal IshType As String) As VMwareISHModulesNS.DocumentObj20.eISHType
+    Public Function StringToISHType(ByVal IshType As String) As DocumentObj20ServiceReference.ISHType
         Select Case IshType
             Case "ISHBaseline"
-                Return DocumentObj20.eISHType.ISHBaseline
+                Return ISHModulesNS.DocumentObj20ServiceReference.ISHType.ISHBaseline
             Case "ISHIllustration"
-                Return DocumentObj20.eISHType.ISHIllustration
+                Return ISHModulesNS.DocumentObj20ServiceReference.ISHType.ISHIllustration
             Case "ISHLibrary"
-                Return DocumentObj20.eISHType.ISHLibrary
+                Return ISHModulesNS.DocumentObj20ServiceReference.ISHType.ISHLibrary
             Case "ISHMasterDoc"
-                Return DocumentObj20.eISHType.ISHMasterDoc
+                Return ISHModulesNS.DocumentObj20ServiceReference.ISHType.ISHMasterDoc
             Case "ISHModule"
-                Return DocumentObj20.eISHType.ISHModule
+                Return ISHModulesNS.DocumentObj20ServiceReference.ISHType.ISHModule
             Case "ISHNone"
-                Return DocumentObj20.eISHType.ISHNone
+                Return ISHModulesNS.DocumentObj20ServiceReference.ISHType.ISHNone
             Case "ISHPublication"
-                Return DocumentObj20.eISHType.ISHPublication
+                Return ISHModulesNS.DocumentObj20ServiceReference.ISHType.ISHPublication
             Case "ISHReusedObj"
-                Return DocumentObj20.eISHType.ISHReusedObj
+                Return ISHModulesNS.DocumentObj20ServiceReference.ISHType.ISHReusedObj
             Case "ISHTemplate"
-                Return DocumentObj20.eISHType.ISHTemplate
+                Return ISHModulesNS.DocumentObj20ServiceReference.ISHType.ISHTemplate
             Case Else
-                Return DocumentObj20.eISHType.ISHNone
+                Return ISHModulesNS.DocumentObj20ServiceReference.ISHType.ISHNone
         End Select
 
     End Function
@@ -419,7 +421,7 @@ Public Class IshDocument
             Return False
         End If
         Try
-            oISHAPIObjs.ISHDocObj.GetMetaData(Context, GUID, version, "en", Resolution, oCommonFuncs.BuildRequestedMetadata().ToString, RequestedXMLObject)
+            oISHAPIObjs.ISHDocObj.GetMetaData(GUID, version, "en", Resolution, oCommonFuncs.BuildRequestedMetadata().ToString, RequestedXMLObject)
         Catch ex As Exception
             'failed to get object
             modErrorHandler.Errors.PrintMessage(2, "Failed to get object in DB. Info: " + GUID + "=" + version + ". Message: " + ex.Message.ToString, strModuleName + "-ChangeRecursiveSubRoutine")
@@ -470,15 +472,13 @@ Public Class IshDocument
         'change the owner of the GUID at the specified ver
         Select Case IshType
             Case "ISHMasterDoc", "ISHModule"
-                If Not Role = "FILLUSTRATOR" Then
-                    'if a map or topic, update the guid with simple command
-                    Try
-                        oISHAPIObjs.ISHDocObj.SetMetaData(Context, GUID, version, "en", "", ishfields.OuterXml.ToString, RequestedXMLObject)
-                    Catch ex As Exception
-                        modErrorHandler.Errors.PrintMessage(2, "Unable to change assignee on object " + GUID + "=" + version + ". Message: " + ex.Message.ToString, strModuleName + "-ChangeRecursiveSubRoutine")
-                        Return False
-                    End Try
-                End If
+                'if a map or topic, update the guid with simple command
+                Try
+                    oISHAPIObjs.ISHDocObj.SetMetaData(GUID, version, "en", "", ishfields.OuterXml.ToString, RequestedXMLObject)
+                Catch ex As Exception
+                    modErrorHandler.Errors.PrintMessage(2, "Unable to change assignee on object " + GUID + "=" + version + ". Message: " + ex.Message.ToString, strModuleName + "-ChangeRecursiveSubRoutine")
+                    Return False
+                End Try
             Case "ISHIllustration"
                 If Not Role = "FEDITOR" And Not Role = "FCODEREVIEWER" Then
                     'If illustration, need to update all possible resolutions.
@@ -492,28 +492,28 @@ Public Class IshDocument
 
 
                     Try
-                        oISHAPIObjs.ISHDocObj.SetMetaData(Context, GUID, version, "en", "High", ishfields.OuterXml.ToString, ishfieldsorig.OuterXml.ToString)
+                        oISHAPIObjs.ISHDocObj.SetMetaData(GUID, version, "en", "High", ishfields.OuterXml.ToString, ishfieldsorig.OuterXml.ToString)
                     Catch ex As Exception
 
                     End Try
                     res.InnerText = "Low"
                     resOrig.InnerText = "Low"
                     Try
-                        oISHAPIObjs.ISHDocObj.SetMetaData(Context, GUID, version, "en", "Low", ishfields.OuterXml.ToString, ishfieldsorig.OuterXml.ToString)
+                        oISHAPIObjs.ISHDocObj.SetMetaData(GUID, version, "en", "Low", ishfields.OuterXml.ToString, ishfieldsorig.OuterXml.ToString)
                     Catch ex As Exception
 
                     End Try
                     res.InnerText = "Thumbnail"
                     resOrig.InnerText = "Thumbnail"
                     Try
-                        oISHAPIObjs.ISHDocObj.SetMetaData(Context, GUID, version, "en", "Thumbnail", ishfields.OuterXml.ToString, ishfieldsorig.OuterXml.ToString)
+                        oISHAPIObjs.ISHDocObj.SetMetaData(GUID, version, "en", "Thumbnail", ishfields.OuterXml.ToString, ishfieldsorig.OuterXml.ToString)
                     Catch ex As Exception
 
                     End Try
                     res.InnerText = "Source"
                     resOrig.InnerText = "Source"
                     Try
-                        oISHAPIObjs.ISHDocObj.SetMetaData(Context, GUID, version, "en", "Source", ishfields.OuterXml.ToString, ishfieldsorig.OuterXml.ToString)
+                        oISHAPIObjs.ISHDocObj.SetMetaData(GUID, version, "en", "Source", ishfields.OuterXml.ToString, ishfieldsorig.OuterXml.ToString)
                     Catch ex As Exception
 
                     End Try
@@ -533,7 +533,7 @@ Public Class IshDocument
         Dim doc As New XmlDocument
         Dim docorig As New XmlDocument
         Try
-            oISHAPIObjs.ISHDocObj.GetMetaData(Context, GUID, Version, "en", Resolution, oCommonFuncs.BuildRequestedMetadata().ToString, RequestedXMLObject)
+            oISHAPIObjs.ISHDocObj.GetMetaData(GUID, Version, "en", Resolution, oCommonFuncs.BuildRequestedMetadata().ToString, RequestedXMLObject)
         Catch ex As Exception
             'failed to get object
             modErrorHandler.Errors.PrintMessage(2, "Failed to get object in DB. Info: " + GUID + "=" + Version + ". Message: " + ex.Message.ToString, strModuleName + "-ChangeAssigneeRecursively")
@@ -587,7 +587,7 @@ Public Class IshDocument
                 If Not Role = "FILLUSTRATOR" Then
                     'if a map or topic, update the guid with simple command
                     Try
-                        oISHAPIObjs.ISHDocObj.SetMetaData(Context, GUID, Version, "en", "", ishfields.OuterXml.ToString, RequestedXMLObject)
+                        oISHAPIObjs.ISHDocObj.SetMetaData(GUID, Version, "en", "", ishfields.OuterXml.ToString, RequestedXMLObject)
                     Catch ex As Exception
                         modErrorHandler.Errors.PrintMessage(2, "Unable to change assignee on object " + GUID + "=" + Version + ". Message: " + ex.Message.ToString, strModuleName + "-ChangeAssigneeRecursively")
                         Return False
@@ -606,28 +606,28 @@ Public Class IshDocument
 
 
                     Try
-                        oISHAPIObjs.ISHDocObj.SetMetaData(Context, GUID, Version, "en", "High", ishfields.OuterXml.ToString, ishfieldsorig.OuterXml.ToString)
+                        oISHAPIObjs.ISHDocObj.SetMetaData(GUID, Version, "en", "High", ishfields.OuterXml.ToString, ishfieldsorig.OuterXml.ToString)
                     Catch ex As Exception
 
                     End Try
                     res.InnerText = "Low"
                     resOrig.InnerText = "Low"
                     Try
-                        oISHAPIObjs.ISHDocObj.SetMetaData(Context, GUID, Version, "en", "Low", ishfields.OuterXml.ToString, ishfieldsorig.OuterXml.ToString)
+                        oISHAPIObjs.ISHDocObj.SetMetaData(GUID, Version, "en", "Low", ishfields.OuterXml.ToString, ishfieldsorig.OuterXml.ToString)
                     Catch ex As Exception
 
                     End Try
                     res.InnerText = "Thumbnail"
                     resOrig.InnerText = "Thumbnail"
                     Try
-                        oISHAPIObjs.ISHDocObj.SetMetaData(Context, GUID, Version, "en", "Thumbnail", ishfields.OuterXml.ToString, ishfieldsorig.OuterXml.ToString)
+                        oISHAPIObjs.ISHDocObj.SetMetaData(GUID, Version, "en", "Thumbnail", ishfields.OuterXml.ToString, ishfieldsorig.OuterXml.ToString)
                     Catch ex As Exception
 
                     End Try
                     res.InnerText = "Source"
                     resOrig.InnerText = "Source"
                     Try
-                        oISHAPIObjs.ISHDocObj.SetMetaData(Context, GUID, Version, "en", "Source", ishfields.OuterXml.ToString, ishfieldsorig.OuterXml.ToString)
+                        oISHAPIObjs.ISHDocObj.SetMetaData(GUID, Version, "en", "Source", ishfields.OuterXml.ToString, ishfieldsorig.OuterXml.ToString)
                     Catch ex As Exception
 
                     End Try
@@ -644,13 +644,13 @@ Public Class IshDocument
 
     Public Function CanMoveToState(ByVal strState As String, ByVal strGUID As String, ByVal strVersion As String, ByVal strResolution As String, Optional ByVal strLanguage As String = "en") As Boolean
 
-        Dim OutStates As String()
+        Dim OutStates As String() = {}
         Try
             ' Declare variable for the Application service
             'Dim DocService As ISDoc.DocumentObj20 = New ISDoc.DocumentObj20()
 
             ' Clear variable for the result
-            oISHAPIObjs.ISHDocObj.GetPossibleTransitionStates(Context, strGUID, strVersion, strLanguage, strResolution, OutStates)
+            oISHAPIObjs.ISHDocObj.GetPossibleTransitionStates(strGUID, strVersion, strLanguage, strResolution, OutStates)
 
         Catch ex As Exception
             modErrorHandler.Errors.PrintMessage(2, "Error getting possible transition states for " + strGUID + "" + strVersion + "" + strLanguage + ". Message: " + ex.Message.ToString, strModuleName + "-CanMoveToState")
@@ -681,7 +681,7 @@ Public Class IshDocument
 
             Dim strMeta As String = "<ishfields><ishfield name=""FSTATUS"" level=""lng""/></ishfields>"
 
-            oISHAPIObjs.ISHDocObj.GetMetaData(Context, GUID, Version, Language, strResolution, strMeta, OutXML)
+            oISHAPIObjs.ISHDocObj.GetMetaData(GUID, Version, Language, strResolution, strMeta, OutXML)
 
         Catch ex As Exception
             modErrorHandler.Errors.PrintMessage(2, "Error getting current state for " + GUID + "" + Version + "" + Language + ". Message: " + ex.Message.ToString, strModuleName + "-GetCurrentState")

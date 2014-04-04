@@ -10,8 +10,9 @@ Public Class IshFolder
 #End Region
 #Region "Constructors"
     Public Sub New(ByVal Username As String, ByVal Password As String, ByVal ServerURL As String)
+        'Make sure to use the FQDN up to the "WS" portion of your URL: "https://yourserver/InfoShareWS"
         oISHAPIObjs = New ISHObjs(Username, Password, ServerURL)
-        oISHAPIObjs.ISHAppObj.Login("InfoShareAuthor", Username, Password, Context)
+        'oISHAPIObjs.ISHAppObj.Login("InfoShareAuthor", Username, Password, Context)
     End Sub
 #End Region
 #Region "Properties"
@@ -26,33 +27,36 @@ Public Class IshFolder
     ''' <param name="FolderName">Name of folder to create/reuse.</param>
     ''' <param name="NewFolderID">New/reused folder's ID.</param>
     ''' <param name="OwnershipGroup">Ownership group based on groups defined in the CMS.</param>
-    ''' <param name="ReadAccessList">Comma-separated string with user groups that have read access to this folder.</param>
     Public Function CreateOrUseFolder(ByVal ParentFolderID As Long, ByVal ISHType As String, ByVal FolderName As String, ByRef NewFolderID As Long, Optional ByVal OwnershipGroup As String = "", Optional ByVal ReadAccess As String = "") As String
         Dim CreateFolderResult As String
-        Dim RealIshType As Folder20.eISHType
+        Dim RealIshType As Folder20ServiceReference.ISHFolderType
         Select Case ISHType
             Case "ISHNone"
-                RealIshType = Folder20.eISHType.ISHNone
+                RealIshType = Folder20ServiceReference.ISHFolderType.ISHNone
             Case "ISHMasterDoc"
-                RealIshType = Folder20.eISHType.ISHMasterDoc
+                RealIshType = Folder20ServiceReference.ISHFolderType.ISHMasterDoc
             Case "ISHModule"
-                RealIshType = Folder20.eISHType.ISHModule
+                RealIshType = Folder20ServiceReference.ISHFolderType.ISHModule
             Case "ISHIllustration"
-                RealIshType = Folder20.eISHType.ISHIllustration
-            Case "ISHReusedObj"
-                RealIshType = Folder20.eISHType.ISHReusedObj
+                RealIshType = Folder20ServiceReference.ISHFolderType.ISHIllustration
+                'Case "ISHReusedObj"
+                'RealIshType = Folder20ServiceReference.ISHFolderType.ISHReusedObj
             Case "ISHTemplate"
-                RealIshType = Folder20.eISHType.ISHTemplate
+                RealIshType = Folder20ServiceReference.ISHFolderType.ISHTemplate
             Case "ISHLibrary"
-                RealIshType = Folder20.eISHType.ISHLibrary
+                RealIshType = Folder20ServiceReference.ISHFolderType.ISHLibrary
             Case "ISHPublication"
-                RealIshType = Folder20.eISHType.ISHPublication
+                RealIshType = Folder20ServiceReference.ISHFolderType.ISHPublication
         End Select
         If FolderExists(ParentFolderID, FolderName) Then
             NewFolderID = GetFolderIDByName(ParentFolderID, FolderName, OwnershipGroup, ReadAccess)
             CreateFolderResult = "Reused existing ID."
         Else
-            CreateFolderResult = oISHAPIObjs.ISHFolderObj.Create(Context, ParentFolderID, RealIshType, FolderName, OwnershipGroup, NewFolderID, ReadAccess)
+            Try
+                CreateFolderResult = oISHAPIObjs.ISHFolderObj.Create(ParentFolderID, RealIshType, FolderName, OwnershipGroup, NewFolderID, ReadAccess)
+            Catch ex As Exception
+                Return ex.Message
+            End Try
         End If
 
         Return CreateFolderResult
@@ -82,12 +86,12 @@ Public Class IshFolder
         Else
             'if we JUST have the root folder, make sure the user called it the right name.
             Dim RealRootName As String = ""
-            Dim rootishtype As VMwareISHModulesNS.Folder20.eISHFolderType
+            Dim rootishtype As ISHModulesNS.Folder20ServiceReference.ISHFolderType
             Dim OutQuery As String = ""
             Dim OwnedBy As String = ""
             Dim rootfolderid As Long = GetFolderIDByName(0, FullCMSPath, OwnershipGroup, ReadAccess)
             If rootfolderid > -1 Then
-                oISHAPIObjs.ISHFolderObj.GetProperties(Context, rootfolderid, RealRootName, rootishtype, OutQuery, OwnershipGroup, ReadAccess)
+                oISHAPIObjs.ISHFolderObj.GetProperties(rootfolderid, RealRootName, rootishtype, OutQuery, OwnershipGroup, ReadAccess)
                 'if it is the right name, return 0
                 If RealRootName = FullCMSPath Then
                     Return 0
@@ -125,8 +129,8 @@ Public Class IshFolder
 
         Return currentID
     End Function
-    
-    
+
+
 
 
     ''' <summary>
@@ -139,7 +143,7 @@ Public Class IshFolder
         Dim subfolderlistXML As String = ""
         Dim CMSReply As String
         Try
-            CMSReply = oISHAPIObjs.ISHFolderObj.GetSubFolders(Context, ParentFolderID.ToString, 1, subfolderlistXML)
+            CMSReply = oISHAPIObjs.ISHFolderObj.GetSubFolders(ParentFolderID.ToString, 1, subfolderlistXML)
         Catch ex As Exception
 
         End Try
@@ -156,11 +160,12 @@ Public Class IshFolder
         'find the id of the one matching the name we're looking for 
         Dim subid As String = ""
         Dim foldername As String = ""
-        Dim curishtype As VMwareISHModulesNS.Folder20.eISHFolderType
+        Dim curishtype As ISHModulesNS.Folder20ServiceReference.ISHFolderType = Folder20ServiceReference.ISHFolderType.ISHNone
         Dim curoutquery As String = ""
         Try
             subid = doc.SelectSingleNode("//ishfolders/ishfolder[@name='" + SubFolderName + "']/@ishfolderref").Value.ToString
-            oISHAPIObjs.ISHFolderObj.GetProperties(Context, Convert.ToInt64(subid), foldername, curishtype, curoutquery, OwnershipGroup, ReadAccess)
+
+            oISHAPIObjs.ISHFolderObj.GetProperties(Convert.ToInt64(subid), foldername, curishtype, curoutquery, OwnershipGroup, ReadAccess)
             Return Convert.ToInt64(subid)
         Catch ex As Exception
             ' Unable to find the node we were looking for in the returned XML.  
@@ -179,7 +184,7 @@ Public Class IshFolder
         Dim subfolderlistXML As String = ""
         Dim CMSReply As String
         Try
-            CMSReply = oISHAPIObjs.ISHFolderObj.GetSubFolders(Context, FolderID.ToString, 1, subfolderlistXML)
+            CMSReply = oISHAPIObjs.ISHFolderObj.GetSubFolders(FolderID.ToString, 1, subfolderlistXML)
         Catch ex As Exception
 
         End Try
@@ -221,7 +226,7 @@ Public Class IshFolder
         Dim foldercontentXML As String = ""
         Dim CMSReply As String
         Try
-            CMSReply = oISHAPIObjs.ISHFolderObj.GetContents(Context, FolderID.ToString, "", "", foldercontentXML)
+            CMSReply = oISHAPIObjs.ISHFolderObj.GetContents(FolderID.ToString, "", "", foldercontentXML)
         Catch ex As Exception
 
         End Try
@@ -250,7 +255,7 @@ Public Class IshFolder
         Dim subfolderlistXML As String = ""
         Dim CMSReply As String
         Try
-            CMSReply = oISHAPIObjs.ISHFolderObj.GetSubFolders(Context, FolderID.ToString, 1, subfolderlistXML)
+            CMSReply = oISHAPIObjs.ISHFolderObj.GetSubFolders(FolderID.ToString, 1, subfolderlistXML)
         Catch ex As Exception
 
         End Try
@@ -282,7 +287,7 @@ Public Class IshFolder
         Dim foldercontentXML As String = ""
         Dim CMSReply As String
         Try
-            CMSReply = oISHAPIObjs.ISHFolderObj.GetContents(Context, FolderID.ToString, "", requestedmeta, foldercontentXML)
+            CMSReply = oISHAPIObjs.ISHFolderObj.GetContents(FolderID.ToString, "", requestedmeta, foldercontentXML)
         Catch ex As Exception
 
         End Try
@@ -362,7 +367,7 @@ Public Class IshFolder
     Public Function DeleteFolder(ByVal folderID As Long, ByRef DelResult As String) As Boolean
         If FolderHasContents(folderID) = False Then
             Try
-                oISHAPIObjs.ISHFolderObj.Delete(Context, folderID)
+                oISHAPIObjs.ISHFolderObj.Delete(folderID)
                 DelResult = ""
                 Return True
             Catch ex As Exception
